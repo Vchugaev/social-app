@@ -1,0 +1,182 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  // output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  username  String   @unique
+  email     String   @unique
+  password  String
+  firstName String
+  lastName  String
+  bio       String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  avatarId Int?  @unique
+  avatar   File? @relation("UserAvatar", fields: [avatarId], references: [id])
+
+  settings      UserSettings?
+  notifications Notification[]
+  friends1      FriendShip[]   @relation("User1")
+  friends2      FriendShip[]   @relation("User2")
+  posts         Post[]
+  likes         Like[]
+  comments      Comment[]
+  messages      Message[]
+  chatMembers   ChatMember[]
+  files         File[]         @relation("UserFiles")
+}
+
+model UserSettings {
+  id             Int      @id @default(autoincrement())
+  userId         Int      @unique
+  user           User     @relation(fields: [userId], references: [id])
+  darkMode       Boolean
+  privateAccount Boolean
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  type      String
+  sourceId  String
+  content   String
+  isRead    Boolean
+  createdAt DateTime @default(now())
+}
+
+model FriendShip {
+  id         Int       @id @default(autoincrement())
+  user1      User      @relation("User1", fields: [user1Id], references: [id])
+  user1Id    Int
+  user2      User      @relation("User2", fields: [user2Id], references: [id])
+  user2Id    Int
+  status     String
+  createdAt  DateTime  @default(now())
+  acceptedAt DateTime?
+
+  @@unique([user1Id, user2Id])
+}
+
+model Post {
+  id          Int         @id @default(autoincrement())
+  authorId    Int
+  author      User        @relation(fields: [authorId], references: [id])
+  content     String
+  isPublished Boolean     @default(false)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  likes       Like[]
+  postMedia   PostMedia[]
+  comments    Comment[]
+}
+
+model Like {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  postId    Int
+  post      Post     @relation(fields: [postId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([userId, postId])
+}
+
+model PostMedia {
+  id        Int      @id @default(autoincrement())
+  postId    Int
+  fileId    Int
+  order     Int
+  post      Post     @relation(fields: [postId], references: [id])
+  file      File     @relation(fields: [fileId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([postId, order])
+}
+
+model Comment {
+  id        Int           @id @default(autoincrement())
+  postId    Int
+  authorId  Int
+  post      Post          @relation(fields: [postId], references: [id])
+  author    User          @relation(fields: [authorId], references: [id])
+  content   String
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  likes     CommentLike[]
+}
+
+model CommentLike {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  commentId Int
+  comment   Comment  @relation(fields: [commentId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([userId, commentId])
+  @@index([userId, commentId])
+}
+
+model Chat {
+  id          Int          @id @default(autoincrement())
+  type        String
+  name        String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  messages    Message[]
+  chatMembers ChatMember[]
+}
+
+model Message {
+  id        Int      @id @default(autoincrement())
+  chatId    Int
+  senderId  Int
+  content   String
+  fileId    Int?
+  chat      Chat     @relation(fields: [chatId], references: [id])
+  sender    User     @relation(fields: [senderId], references: [id])
+  file      File?    @relation(fields: [fileId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ChatMember {
+  id       Int      @id @default(autoincrement())
+  chatId   Int
+  userId   Int
+  chat     Chat     @relation(fields: [chatId], references: [id])
+  user     User     @relation(fields: [userId], references: [id])
+  role     String
+  joinedAt DateTime @default(now())
+}
+
+model File {
+  id        Int      @id @default(autoincrement())
+  ownerId   Int
+  owner     User     @relation("UserFiles", fields: [ownerId], references: [id])
+  bucket    String
+  key       String
+  type      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userAvatar   User?       @relation("UserAvatar")
+  postMedia    PostMedia[]
+  messageMedia Message[]
+}
