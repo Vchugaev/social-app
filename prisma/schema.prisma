@@ -37,6 +37,7 @@ model User {
   comments      Comment[]
   messages      Message[]
   chatMembers   ChatMember[]
+  messageReads  MessageRead[]
   files         File[]         @relation("UserFiles")
 }
 
@@ -144,16 +145,17 @@ model Chat {
 }
 
 model Message {
-  id        Int      @id @default(autoincrement())
+  id        Int           @id @default(autoincrement())
   chatId    Int
   senderId  Int
   content   String
   fileId    Int?
-  chat      Chat     @relation(fields: [chatId], references: [id])
-  sender    User     @relation(fields: [senderId], references: [id])
-  file      File?    @relation(fields: [fileId], references: [id])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  chat      Chat          @relation(fields: [chatId], references: [id])
+  sender    User          @relation(fields: [senderId], references: [id])
+  file      File?         @relation(fields: [fileId], references: [id])
+  reads     MessageRead[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
 }
 
 model ChatMember {
@@ -164,6 +166,18 @@ model ChatMember {
   user     User     @relation(fields: [userId], references: [id])
   role     String
   joinedAt DateTime @default(now())
+}
+
+model MessageRead {
+  id        Int      @id @default(autoincrement())
+  messageId Int
+  userId    Int
+  message   Message  @relation(fields: [messageId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+  readAt    DateTime @default(now())
+
+  @@unique([messageId, userId])
+  @@index([userId, messageId])
 }
 
 model File {

@@ -4,10 +4,12 @@ import { ValidationPipe } from '@nestjs/common';
 import session from 'express-session';
 import Redis from 'ioredis';
 import RedisStore from 'connect-redis';
+import cookieParser from 'cookie-parser';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
+  app.use(cookieParser());
 
   // Инициализация Redis клиента
   const redisClient = new Redis({
@@ -26,6 +28,10 @@ async function bootstrap() {
     client: redisClient,
     prefix: 'sess:',
   });
+  app.enableCors({
+    origin: 'http://localhost:3000',
+    credentials: true,
+  });
 
   app.use(
     session({
@@ -34,15 +40,15 @@ async function bootstrap() {
       resave: false,
       saveUninitialized: false,
       cookie: {
-        maxAge: 1000 * 60 * 60 * 24, // 1 день в миллисекундах
+        maxAge: 1000 * 60 * 60 * 24 * 365, // 1 год в миллисекундах
         httpOnly: true,
         secure: false,
       },
     }),
   );
 
-  await app.listen(process.env.PORT ?? 3000);
-  console.log(`🚀 Server running on port ${process.env.PORT ?? 3000}`);
+  await app.listen(process.env.PORT ?? 3001);
+  console.log(`🚀 Server running on port ${process.env.PORT ?? 3001}`);
 }
 
 bootstrap();

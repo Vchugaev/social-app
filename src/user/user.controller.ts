@@ -2,8 +2,10 @@ import {
   Body,
   Controller,
   Get,
+  Logger,
   Patch,
   Post,
+  Query,
   Req,
   UploadedFile,
   UseGuards,
@@ -29,6 +31,7 @@ export class UserController {
   @UseGuards(AuthGuard)
   @Get('me')
   async getProfile(@Req() req) {
+    Logger.log('Профиль поулчен');
     return this.userService.getProfile(req.user.id);
   }
 
@@ -36,5 +39,29 @@ export class UserController {
   @Patch('update')
   async updateProfile(@Req() req, @Body() data: UpdateProfileDto) {
     return this.userService.updateProfile(req.user.id, data);
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('stats')
+  async getStats(@Req() req) {
+    return this.userService.getProfileStats(req.user.id);
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('activity')
+  async getActivity(@Req() req) {
+    return this.userService.getProfileActivity(req.user.id);
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('connections')
+  async getConnections(@Req() req) {
+    return this.userService.getProfileConnections(req.user.id);
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('search')
+  async searchUsers(@Req() req, @Query('q') query: string) {
+    return this.userService.searchUsers(req.user.id, query || '', 10);
   }
 }

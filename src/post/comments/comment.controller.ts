@@ -9,62 +9,64 @@ import {
   ParseIntPipe,
   Patch,
   Post,
-  Query,
   Req,
-  UploadedFiles,
   UseGuards,
-  UseInterceptors,
 } from '@nestjs/common';
-import { StorageService } from 'src/storage/storage.service';
-import { PrismaService } from 'src/prisma/prisma.service';
 import { AuthGuard } from 'src/common/guards/auth.guard';
 import { CommentService } from './comment.service';
 import type { Request } from 'express';
 
 @Controller('post')
-export class PostController {
-  constructor(
-    private readonly commentService: CommentService,
-    private readonly storageService: StorageService,
-    private readonly prismaService: PrismaService,
-  ) {}
+export class CommentController {
+  constructor(private readonly commentService: CommentService) {}
 
   @UseGuards(AuthGuard)
-  @Post('create')
+  @Get(':postId/comments')
+  async getComments(
+    @Req() req: Request,
+    @Param('postId', ParseIntPipe) postId: number,
+  ) {
+    return this.commentService.getComments(req, postId);
+  }
+
+  @UseGuards(AuthGuard)
+  @Post(':postId/comments')
+  @HttpCode(HttpStatus.CREATED)
   async createComment(
     @Req() req: Request,
-    @Body('postId') postId: number,
+    @Param('postId', ParseIntPipe) postId: number,
     @Body('content') content: string,
   ) {
     return this.commentService.createComment(req, postId, content);
   }
 
   @UseGuards(AuthGuard)
-  @Patch('edit')
+  @Patch('comments/:commentId')
   async editComment(
     @Req() req: Request,
-    @Body('commentId') commentId: number,
+    @Param('commentId', ParseIntPipe) commentId: number,
     @Body('content') content: string,
   ) {
     return this.commentService.editComment(req, commentId, content);
   }
 
   @UseGuards(AuthGuard)
-  @Delete('delete')
+  @Delete('comments/:commentId')
+  @HttpCode(HttpStatus.OK)
   async deleteComment(
     @Req() req: Request,
-    @Body('commentId') commentId: number,
+    @Param('commentId', ParseIntPipe) commentId: number,
   ) {
     return this.commentService.deleteComment(req, commentId);
   }
 
   @UseGuards(AuthGuard)
-  @Post('like')
+  @Post('comments/:commentId/like')
+  @HttpCode(HttpStatus.OK)
   async likeComment(
     @Req() req: Request,
-    @Body('postId') postId: number,
-    @Body('commentId') commentId: number,
+    @Param('commentId', ParseIntPipe) commentId: number,
   ) {
-    return this.commentService.likeComment(req, commentId, postId);
+    return this.commentService.likeComment(req, commentId);
   }
 }
