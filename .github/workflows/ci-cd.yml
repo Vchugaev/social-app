@@ -2,14 +2,10 @@ name: Backend CI/CD
 
 on:
   push:
-    branches: [main, develop]
+    branches: [master]
     paths:
       - 'back/**'
       - '.github/workflows/ci-cd.yml'
-  pull_request:
-    branches: [main, develop]
-    paths:
-      - 'back/**'
 
 env:
   NODE_VERSION: '20.x'
@@ -155,7 +151,7 @@ jobs:
     name: Deploy to Staging
     runs-on: ubuntu-latest
     needs: build
-    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    if: github.event_name == 'push'
     environment:
       name: staging
       url: https://staging-api.yourdomain.com
@@ -177,18 +173,19 @@ jobs:
           username: ${{ secrets.STAGING_USER }}
           key: ${{ secrets.STAGING_SSH_KEY }}
           script: |
-            cd /var/www/linkup-backend
-            git pull origin develop
+            cd /var/www/linkup-backend/back
+            git pull origin master
             npm ci --production
             npx prisma generate
             npx prisma migrate deploy
-            pm2 restart linkup-backend-staging
+            npm run build
+            pm2 restart linkup-backend || pm2 start ecosystem.config.js --env production --name linkup-backend
 
   deploy-production:
     name: Deploy to Production
     runs-on: ubuntu-latest
     needs: build
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: false
     environment:
       name: production
       url: https://api.yourdomain.com
@@ -211,7 +208,7 @@ jobs:
           key: ${{ secrets.PRODUCTION_SSH_KEY }}
           script: |
             cd /var/www/linkup-backend
-            git pull origin main
+            git pull origin master
             npm ci --production
             npx prisma generate
             npx prisma migrate deploy
