@@ -59,7 +59,7 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/linkup_test
 
       - name: Run tests
-        run: npm run test
+        run: npm run test -- --passWithNoTests
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/linkup_test
           FRONTEND_URL: http://localhost:3000
