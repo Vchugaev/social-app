@@ -108,7 +108,7 @@ jobs:
           username: ${{ secrets.STAGING_USER }}
           key: ${{ secrets.STAGING_SSH_KEY }}
           script: |
-            cd /var/www/linkup-backend
+            cd /var/www/social-app
             git pull origin master
             npm ci --production
             npx prisma generate
