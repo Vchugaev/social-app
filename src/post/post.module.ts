@@ -6,9 +6,10 @@ import { CommentController } from './comments/comment.controller';
 import { AuthGuard } from 'src/common/guards/auth.guard';
 import { PrismaModule } from 'src/prisma/prisma.module';
 import { StorageModule } from 'src/storage/storage.module';
+import { NotificationModule } from 'src/notification/notification.module';
 
 @Module({
-  imports: [PrismaModule, StorageModule],
+  imports: [PrismaModule, StorageModule, NotificationModule],
   providers: [PostService, CommentService, AuthGuard],
   controllers: [PostController, CommentController],
 })

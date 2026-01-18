@@ -22,13 +22,18 @@ model User {
   firstName String
   lastName  String
   bio       String?
+  phone     String?
+  lastActiveAt DateTime @default(now())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  avatarId Int?  @unique
-  avatar   File? @relation("UserAvatar", fields: [avatarId], references: [id])
+  avatarId  Int?  @unique
+  avatar    File? @relation("UserAvatar", fields: [avatarId], references: [id])
+  bannerId  Int?  @unique
+  banner    File? @relation("UserBanner", fields: [bannerId], references: [id])
 
   settings      UserSettings?
+  sessions      UserSession[]
   notifications Notification[]
   friends1      FriendShip[]   @relation("User1")
   friends2      FriendShip[]   @relation("User2")
@@ -39,16 +44,38 @@ model User {
   chatMembers   ChatMember[]
   messageReads  MessageRead[]
   files         File[]         @relation("UserFiles")
+  postViews     PostView[]
+  createdChats  Chat[]         @relation("ChatCreator")
+  favorites     Favorite[]
 }
 
 model UserSettings {
-  id             Int      @id @default(autoincrement())
-  userId         Int      @unique
-  user           User     @relation(fields: [userId], references: [id])
-  darkMode       Boolean
-  privateAccount Boolean
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                   Int      @id @default(autoincrement())
+  userId               Int      @unique
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  darkMode             Boolean  @default(false)
+  privateAccount       Boolean  @default(false)
+  whoCanMessage        String   @default("everyone") // everyone, friends, nobody
+  whoCanSeeFriends     String   @default("everyone") // everyone, friends, nobody
+  whoCanAddToGroups    String   @default("everyone") // everyone, friends, nobody
+  hideOnlineStatus     Boolean  @default(false)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+model UserSession {
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionToken String   @unique
+  userAgent    String?
+  ipAddress    String?
+  lastActiveAt DateTime @default(now())
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+  @@index([sessionToken])
 }
 
 model Notification {
@@ -81,11 +108,14 @@ model Post {
   author      User        @relation(fields: [authorId], references: [id])
   content     String
   isPublished Boolean     @default(false)
+  isPinned    Boolean     @default(false)
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
   likes       Like[]
   postMedia   PostMedia[]
   comments    Comment[]
+  views       PostView[]
+  favorites   Favorite[]
 }
 
 model Like {
@@ -115,8 +145,8 @@ model Comment {
   id        Int           @id @default(autoincrement())
   postId    Int
   authorId  Int
-  post      Post          @relation(fields: [postId], references: [id])
-  author    User          @relation(fields: [authorId], references: [id])
+  post      Post          @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author    User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
   content   String
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
@@ -127,7 +157,7 @@ model CommentLike {
   id        Int      @id @default(autoincrement())
   userId    Int
   commentId Int
-  comment   Comment  @relation(fields: [commentId], references: [id])
+  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
 
   @@unique([userId, commentId])
@@ -138,6 +168,11 @@ model Chat {
   id          Int          @id @default(autoincrement())
   type        String
   name        String
+  description String?
+  createdById Int?
+  creator     User?        @relation("ChatCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  avatarId    Int?         @unique
+  avatar      File?        @relation("ChatAvatar", fields: [avatarId], references: [id], onDelete: SetNull)
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
   messages    Message[]
@@ -145,17 +180,20 @@ model Chat {
 }
 
 model Message {
-  id        Int           @id @default(autoincrement())
-  chatId    Int
-  senderId  Int
-  content   String
-  fileId    Int?
-  chat      Chat          @relation(fields: [chatId], references: [id])
-  sender    User          @relation(fields: [senderId], references: [id])
-  file      File?         @relation(fields: [fileId], references: [id])
-  reads     MessageRead[]
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
+  id           Int           @id @default(autoincrement())
+  chatId       Int
+  senderId     Int
+  content      String
+  fileId       Int?
+  replyToId    Int?
+  chat         Chat          @relation(fields: [chatId], references: [id])
+  sender       User          @relation(fields: [senderId], references: [id])
+  file         File?         @relation(fields: [fileId], references: [id])
+  replyTo      Message?      @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies      Message[]     @relation("MessageReplies")
+  reads        MessageRead[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 }
 
 model ChatMember {
@@ -172,7 +210,7 @@ model MessageRead {
   id        Int      @id @default(autoincrement())
   messageId Int
   userId    Int
-  message   Message  @relation(fields: [messageId], references: [id])
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
   user      User     @relation(fields: [userId], references: [id])
   readAt    DateTime @default(now())
 
@@ -191,6 +229,37 @@ model File {
   updatedAt DateTime @updatedAt
 
   userAvatar   User?       @relation("UserAvatar")
+  userBanner   User?       @relation("UserBanner")
+  chatAvatar   Chat?       @relation("ChatAvatar")
   postMedia    PostMedia[]
   messageMedia Message[]
+}
+
+model PostView {
+  id        Int      @id @default(autoincrement())
+  postId    Int
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    Int?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  ipAddress String?
+  userAgent String?
+  viewedAt  DateTime @default(now())
+
+  @@unique([userId, postId], name: "unique_user_post_view")
+  @@index([postId])
+  @@index([userId, postId])
+  @@index([ipAddress, postId])
+}
+
+model Favorite {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postId    Int
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, postId])
+  @@index([userId])
+  @@index([postId])
 }

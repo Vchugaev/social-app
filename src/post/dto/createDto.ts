@@ -1,10 +1,10 @@
-import { IsBoolean, IsOptional, IsString, Length } from 'class-validator';
+import { IsBoolean, IsOptional, IsString, MaxLength } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 export class CreateDto {
   @IsOptional()
   @IsString()
-  @Length(3, 4000)
+  @MaxLength(4000)
   content: string;
 
   @IsOptional()

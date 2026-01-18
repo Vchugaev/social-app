@@ -7,6 +7,7 @@ import {
 import { Prisma, User } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { StorageService } from 'src/storage/storage.service';
+import { NotificationService } from 'src/notification/notification.service';
 import { Request } from 'express';
 
 @Injectable()
@@ -14,6 +15,7 @@ export class CommentService {
   constructor(
     private prisma: PrismaService,
     private storageService: StorageService,
+    private notificationService: NotificationService,
   ) {}
 
   async getComments(req: Request, postId: number) {
@@ -48,7 +50,9 @@ export class CommentService {
         },
       },
       orderBy: {
-        createdAt: 'asc',
+        likes: {
+          _count: 'desc',
+        },
       },
     });
 
@@ -104,6 +108,16 @@ export class CommentService {
       );
     }
 
+    // Получаем информацию о посте и его авторе
+    const post = await this.prisma.post.findUnique({
+      where: { id: postId },
+      select: { authorId: true },
+    });
+
+    if (!post) {
+      throw new NotFoundException('Post not found');
+    }
+
     const comment = await this.prisma.comment.create({
       data: {
         postId: postId,
@@ -132,6 +146,16 @@ export class CommentService {
         },
       },
     });
+
+    // Отправляем уведомление автору поста (если это не он сам)
+    if (post.authorId !== req.user.id) {
+      await this.notificationService.notifyPostComment(
+        post.authorId,
+        req.user.id,
+        `${comment.author.firstName} ${comment.author.lastName}`,
+        postId,
+      );
+    }
 
     let avatarUrl: string | null = null;
     if (comment.author.avatar?.bucket && comment.author.avatar?.key) {
@@ -280,8 +304,25 @@ export class CommentService {
       );
     }
 
-    await this.prisma.comment.delete({
-      where: { id: commentId },
+    // Удаляем связанные записи в транзакции
+    await this.prisma.$transaction(async (tx) => {
+      // Удаляем все лайки комментария
+      await tx.commentLike.deleteMany({
+        where: { commentId: commentId },
+      });
+
+      // Удаляем уведомления, связанные с этим комментарием
+      await tx.notification.deleteMany({
+        where: {
+          sourceId: commentId.toString(),
+          type: 'comment',
+        },
+      });
+
+      // Удаляем сам комментарий
+      await tx.comment.delete({
+        where: { id: commentId },
+      });
     });
 
     return true;

@@ -56,3 +56,14 @@ pids
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 /generated/prisma
+
+# PM2
+.pm2
+logs/
+*.log
+
+# Docker
+docker-compose.override.yml
+
+# CI/CD
+.github/workflows/*.local.yml

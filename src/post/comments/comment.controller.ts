@@ -13,6 +13,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from 'src/common/guards/auth.guard';
+import { OptionalAuthGuard } from 'src/common/guards/optional-auth.guard';
 import { CommentService } from './comment.service';
 import type { Request } from 'express';
 
@@ -20,7 +21,7 @@ import type { Request } from 'express';
 export class CommentController {
   constructor(private readonly commentService: CommentService) {}
 
-  @UseGuards(AuthGuard)
+  @UseGuards(OptionalAuthGuard)
   @Get(':postId/comments')
   async getComments(
     @Req() req: Request,

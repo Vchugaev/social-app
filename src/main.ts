@@ -29,14 +29,14 @@ async function bootstrap() {
     prefix: 'sess:',
   });
   app.enableCors({
-    origin: 'http://localhost:3000',
+    origin: process.env.FRONTEND_URL || 'http://localhost:3002',
     credentials: true,
   });
 
   app.use(
     session({
       store: redisStore,
-      secret: process.env.SESSION_SECRET || 'pass',
+      secret: process.env.SESSION_SECRET || 'sosalovo',
       resave: false,
       saveUninitialized: false,
       cookie: {

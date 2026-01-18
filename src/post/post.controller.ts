@@ -21,6 +21,7 @@ import {
 import type { Request } from 'express';
 import { PostService } from './post.service';
 import { AuthGuard } from 'src/common/guards/auth.guard';
+import { OptionalAuthGuard } from 'src/common/guards/optional-auth.guard';
 import { CreateDto } from './dto/createDto';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { UpdatePostDto } from './dto/updateDto';
@@ -37,10 +38,30 @@ export class PostController {
     private readonly prismaService: PrismaService,
   ) {}
 
-  @UseGuards(AuthGuard)
+  @UseGuards(OptionalAuthGuard)
+  @Get('search')
+  async searchPosts(
+    @Req() req: Request,
+    @Query('query') query: string,
+    @Query('limit') limit?: string,
+  ) {
+    if (!query || query.trim().length === 0) {
+      return [];
+    }
+
+    const limitNum = limit ? parseInt(limit, 10) : 10;
+    return this.postService.searchPosts(req, query, limitNum);
+  }
+
+  @UseGuards(OptionalAuthGuard)
   @Get('posts')
-  async getPosts(@Req() req: Request, @Query('id') userId?: string) {
-    // Convert string query param to number
+  async getPosts(
+    @Req() req: Request, 
+    @Query('id') userId?: string,
+    @Query('limit') limit?: string,
+    @Query('cursor') cursor?: string,
+  ) {
+    // Convert string query params to numbers
     let userIdNum: number | undefined;
     if (userId) {
       const parsed = parseInt(userId, 10);
@@ -49,7 +70,20 @@ export class PostController {
       }
       userIdNum = parsed;
     }
-    return this.postService.getPosts(req, userIdNum);
+
+    const limitNum = limit ? parseInt(limit, 10) : 10;
+    const cursorNum = cursor ? parseInt(cursor, 10) : undefined;
+
+    return this.postService.getPosts(req, userIdNum, limitNum, cursorNum);
+  }
+
+  @UseGuards(OptionalAuthGuard)
+  @Get(':id')
+  async getPostById(
+    @Req() req: Request,
+    @Param('id', ParseIntPipe) postId: number,
+  ) {
+    return this.postService.getPostById(req, postId);
   }
 
   @UseGuards(AuthGuard)
@@ -86,11 +120,15 @@ export class PostController {
 
     try {
       // Валидация входных данных
-      if (!dto.content || dto.content.trim().length === 0) {
-        throw new BadRequestException('Post content cannot be empty');
+      // Пост должен содержать либо текст, либо изображения
+      const hasContent = dto.content && dto.content.trim().length > 0;
+      const hasFiles = files && files.length > 0;
+
+      if (!hasContent && !hasFiles) {
+        throw new BadRequestException('Post must contain either text or images');
       }
 
-      if (dto.content.length > 5000) {
+      if (dto.content && dto.content.length > 5000) {
         throw new BadRequestException(
           'Post content is too long. Maximum length is 5000 characters',
         );
@@ -165,5 +203,55 @@ export class PostController {
     @Param('id', ParseIntPipe) postId: number,
   ) {
     return this.postService.toggleLike(req, postId);
+  }
+
+  @UseGuards(AuthGuard)
+  @Patch(':id/pin')
+  @HttpCode(HttpStatus.OK)
+  async togglePin(
+    @Req() req: Request,
+    @Param('id', ParseIntPipe) postId: number,
+  ) {
+    return this.postService.togglePin(req, postId);
+  }
+
+  @UseGuards(AuthGuard)
+  @Get(':id/views')
+  async getViewStats(@Param('id', ParseIntPipe) postId: number) {
+    return this.postService.getPostViewStats(postId);
+  }
+
+  @UseGuards(AuthGuard)
+  @Post(':id/view')
+  @HttpCode(HttpStatus.OK)
+  async registerView(
+    @Req() req: Request,
+    @Param('id', ParseIntPipe) postId: number,
+  ) {
+    await this.postService.registerPostView(req, postId);
+    return { success: true };
+  }
+
+  @UseGuards(AuthGuard)
+  @Post(':id/favorite')
+  @HttpCode(HttpStatus.OK)
+  async toggleFavorite(
+    @Req() req: Request,
+    @Param('id', ParseIntPipe) postId: number,
+  ) {
+    return this.postService.toggleFavorite(req, postId);
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('favorites/list')
+  async getFavorites(
+    @Req() req: Request,
+    @Query('limit') limit?: string,
+    @Query('cursor') cursor?: string,
+  ) {
+    const limitNum = limit ? parseInt(limit, 10) : 10;
+    const cursorNum = cursor ? parseInt(cursor, 10) : undefined;
+
+    return this.postService.getFavorites(req, limitNum, cursorNum);
   }
 }

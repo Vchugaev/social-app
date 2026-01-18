@@ -1,8 +1,11 @@
-import { IsEmail, IsString, Length, ValidationOptions } from 'class-validator';
+import { IsEmail, IsString, Length, Matches } from 'class-validator';
 
 export class RegisterDto {
   @IsString()
-  @Length(3, 30)
+  @Length(3, 30, { message: 'Имя пользователя должно содержать от 3 до 30 символов' })
+  @Matches(/^[a-zA-Z0-9_-]+$/, { 
+    message: 'Имя пользователя может содержать только латинские буквы, цифры, дефис и подчеркивание' 
+  })
   username: string;
 
   @IsEmail()

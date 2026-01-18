@@ -15,16 +15,36 @@ export class StorageService implements OnModuleInit {
   constructor(private prisma: PrismaService) {}
 
   onModuleInit(): void {
+    // Чтение конфигурации S3 из переменных окружения
+    const s3Endpoint = process.env.S3_ENDPOINT || 'localhost';
+    const s3Port = parseInt(process.env.S3_PORT || '9000', 10);
+    const s3UseSSL = process.env.S3_USE_SSL === 'true';
+    const s3AccessKey = process.env.S3_ACCESS_KEY || 'admin';
+    const s3SecretKey = process.env.S3_SECRET_KEY || 'password123';
+    const s3Region = process.env.S3_REGION || 'us-east-1';
+
     this.client = new Minio.Client({
-      endPoint: 'localhost',
-      port: 9000,
-      useSSL: false,
-      accessKey: 'admin',
-      secretKey: 'password123',
+      endPoint: s3Endpoint,
+      port: s3Port,
+      useSSL: s3UseSSL,
+      accessKey: s3AccessKey,
+      secretKey: s3SecretKey,
+      region: s3Region,
     });
   }
   async getPresignedUrl(bucket: string, key: string, expires: number) {
-    return this.client.presignedGetObject(bucket, key, expires);
+    try {
+      return await this.client.presignedGetObject(bucket, key, expires);
+    } catch (error) {
+      // Если бакет не существует, просто возвращаем null вместо ошибки
+      if (error.code === 'NoSuchBucket') {
+        this.logger.warn(`Bucket "${bucket}" does not exist, returning null for presigned URL`);
+        return null;
+      }
+      
+      // Для других ошибок пробрасываем исключение
+      throw error;
+    }
   }
 
   async deleteFile(bucket: string, key: string) {
@@ -243,5 +263,30 @@ export class StorageService implements OnModuleInit {
         `Failed to upload file "${file?.originalname || 'unknown'}": ${errorMessage}`,
       );
     }
+  }
+
+  async uploadFile(
+    buffer: Buffer,
+    originalName: string,
+    mimeType: string,
+    userId: number,
+  ) {
+    const bucket = 'chat-files';
+    const key = `${userId}/${Date.now()}-${originalName}`;
+    
+    const file: Express.Multer.File = {
+      buffer,
+      originalname: originalName,
+      mimetype: mimeType,
+      size: buffer.length,
+      fieldname: 'file',
+      encoding: '7bit',
+      stream: null as any,
+      destination: '',
+      filename: '',
+      path: '',
+    };
+    
+    return this.upload(userId, bucket, file, key);
   }
 }
